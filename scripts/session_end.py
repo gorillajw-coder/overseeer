@@ -75,17 +75,31 @@ def project_hash(project_path: str) -> str:
     return p.replace("/", "-").replace(".", "-").replace("_", "-")
 
 
-def find_session_jsonl(project_path: str, session_id: str) -> Path | None:
+def find_session_jsonl(project_path: str, session_id: str | None) -> Path | None:
     base = Path.home() / ".claude" / "projects"
-    # 1) 정석 경로
-    candidate = base / project_hash(project_path) / f"{session_id}.jsonl"
-    if candidate.exists():
-        return candidate
-    # 2) 어디에 있든 session_id로 글로벌 탐색 (버전별 경로 차이 대응)
-    matches = list(base.glob(f"**/{session_id}.jsonl"))
-    if matches:
-        return matches[0]
-    log(f".jsonl 을 찾지 못함 (session_id={session_id})")
+    proj_dir = base / project_hash(project_path)
+
+    if session_id:
+        # 1) 정석 경로
+        candidate = proj_dir / f"{session_id}.jsonl"
+        if candidate.exists():
+            return candidate
+        # 2) 어디에 있든 session_id로 글로벌 탐색 (버전별 경로 차이 대응)
+        matches = list(base.glob(f"**/{session_id}.jsonl"))
+        if matches:
+            return matches[0]
+        log(f".jsonl 을 찾지 못함 (session_id={session_id})")
+        return None
+
+    # session_id 미지정 → 해당 프로젝트의 가장 최근 .jsonl 자동 감지
+    candidates = (
+        sorted(proj_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+        if proj_dir.exists()
+        else []
+    )
+    if candidates:
+        return candidates[0]
+    log(f"세션 .jsonl 을 찾지 못함 (프로젝트 디렉토리: {proj_dir})")
     return None
 
 
@@ -348,11 +362,15 @@ def _chunks(text: str, size: int) -> list[str]:
 # --------------------------------------------------------------------------- #
 def main() -> int:
     parser = argparse.ArgumentParser(description="Overseer session-end logger")
-    parser.add_argument("--project-path", required=True)
-    parser.add_argument("--session-id", required=True)
+    parser.add_argument(
+        "--project-path", default=None, help="대상 프로젝트 경로 (생략 시 현재 폴더)"
+    )
+    parser.add_argument(
+        "--session-id", default=None, help="세션 ID (생략 시 최근 세션 자동 감지)"
+    )
     args = parser.parse_args()
 
-    project_path = os.path.abspath(os.path.expanduser(args.project_path))
+    project_path = os.path.abspath(os.path.expanduser(args.project_path or os.getcwd()))
     session_id = args.session_id
 
     load_env()
@@ -363,8 +381,13 @@ def main() -> int:
     project_name = os.path.basename(os.path.normpath(project_path))
     title = f"{date_str}_{project_name}"
 
-    # 1. 대화 읽기
+    # 1. 대화 읽기 (session_id 없으면 최근 세션 자동 감지)
     jsonl = find_session_jsonl(project_path, session_id)
+    if jsonl and not session_id:
+        session_id = jsonl.stem
+        log(f"세션 자동 감지: {session_id}")
+    if not session_id:
+        session_id = "manual"
     transcript = read_transcript(jsonl) if jsonl else ""
     if not transcript:
         transcript = "(세션 대화 내용을 찾지 못했습니다.)"
