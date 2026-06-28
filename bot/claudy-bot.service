@@ -1,0 +1,15 @@
+[Unit]
+Description=Claudy Telegram Bot (@noticlaudy_bot) — server claude bridge
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=gorillajw
+WorkingDirectory=/mnt/ssd/overseeer/bot
+Environment=PATH=/home/gorillajw/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/mnt/ssd/overseeer/bot/venv/bin/python main.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """Overseer — Claude Code 세션 종료 로거.
 
-"오늘은 끝!" 입력 시 트리거되어:
+"/끝" 입력 시 트리거되어:
   1. 현재 세션의 .jsonl 대화 내용을 읽고
   2. (있으면) Development_plan_*.md 를 참조해
   3. Claude API로 요약을 생성한 뒤
   4. .claude-sessions/ 에 마크다운으로 저장하고
   5. git commit 하고
-  6. Notion DB에 행을 추가한다.
+  6. 중앙 로그(~/.claude/overseer-log/<날짜>/)에 사본을 남긴다.
+     → 다음날 아침 daily_digest.py 가 이 중앙 로그를 모아 다이제스트를 보낸다.
+
+세션마다 조용히 기록만 한다 (알림/발송 없음). 발송은 daily_digest.py 담당.
 
 사용법:
   python3 ~/.claude/scripts/session_end.py \
@@ -16,8 +19,10 @@
 
 graceful fallback 원칙:
   - Development_plan_*.md 가 없어도 요약은 동작한다.
-  - git repo가 아니면 커밋은 건너뛰고 Notion만 업데이트한다.
+  - git repo가 아니면 커밋은 건너뛰고 중앙 로그만 남긴다.
   - 일부 단계가 실패해도 나머지 단계는 계속 진행한다.
+
+의존성: 표준 라이브러리만 사용 (anthropic SDK 불필요).
 """
 
 from __future__ import annotations
@@ -38,9 +43,8 @@ from pathlib import Path
 SUMMARY_MODEL = "claude-sonnet-4-6"
 # Claude API에 보낼 대화 텍스트 최대 길이 (문자 기준, 너무 길면 앞부분을 잘라냄)
 MAX_TRANSCRIPT_CHARS = 120_000
-NOTION_VERSION = "2022-06-28"
-# Notion rich_text 한 블록 최대 길이 (실제 한도 2000)
-NOTION_TEXT_LIMIT = 1900
+ANTHROPIC_VERSION = "2023-06-01"
+ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 
 
 def log(msg: str) -> None:
@@ -161,10 +165,10 @@ def find_dev_plan(project_path: str) -> str | None:
 
 
 # --------------------------------------------------------------------------- #
-# Claude API 요약
+# Claude API 요약 (stdlib urllib — anthropic SDK 불필요)
 # --------------------------------------------------------------------------- #
 SUMMARY_PROMPT = """다음은 Claude Code 세션 대화 내용입니다.
-{plan_section}아래 형식의 한국어 마크다운으로 요약하세요. 다른 말은 붙이지 마세요.
+{plan_section}아래 형식의 한국어 마크다운으로 **간략히** 요약하세요. 다른 말은 붙이지 마세요.
 
 ## 작업 목표
 (한 줄)
@@ -185,13 +189,8 @@ SUMMARY_PROMPT = """다음은 Claude Code 세션 대화 내용입니다.
 
 
 def summarize(transcript: str, dev_plan: str | None) -> str:
-    try:
-        import anthropic
-    except ImportError:
-        log("anthropic 패키지가 없습니다. `pip install anthropic` 후 재시도하세요.")
-        return "(요약 실패: anthropic 패키지 미설치)"
-
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
         log("ANTHROPIC_API_KEY 가 설정되지 않았습니다.")
         return "(요약 실패: ANTHROPIC_API_KEY 없음)"
 
@@ -203,15 +202,34 @@ def summarize(transcript: str, dev_plan: str | None) -> str:
         )
 
     prompt = SUMMARY_PROMPT.format(plan_section=plan_section, transcript=transcript)
-
+    payload = {
+        "model": SUMMARY_MODEL,
+        "max_tokens": 1500,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    req = urllib.request.Request(
+        ANTHROPIC_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "x-api-key": api_key,
+            "anthropic-version": ANTHROPIC_VERSION,
+            "content-type": "application/json",
+        },
+        method="POST",
+    )
     try:
-        client = anthropic.Anthropic()
-        resp = client.messages.create(
-            model=SUMMARY_MODEL,
-            max_tokens=1500,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return "".join(b.text for b in resp.content if b.type == "text").strip()
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        parts = [
+            b.get("text", "")
+            for b in data.get("content", [])
+            if b.get("type") == "text"
+        ]
+        return "".join(parts).strip() or "(요약 실패: 빈 응답)"
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode(errors="replace")
+        log(f"Claude API 호출 실패 (HTTP {exc.code}): {detail}")
+        return f"(요약 실패: HTTP {exc.code})"
     except Exception as exc:  # noqa: BLE001 - API 실패해도 파이프라인은 계속
         log(f"Claude API 호출 실패: {exc}")
         return f"(요약 실패: {exc})"
@@ -286,75 +304,31 @@ def write_and_commit(
 
 
 # --------------------------------------------------------------------------- #
-# Notion
+# 중앙 로그 (다음날 아침 daily_digest.py 가 모아서 발송)
 # --------------------------------------------------------------------------- #
-def _rt(text: str) -> list[dict]:
-    return [{"text": {"content": text[:NOTION_TEXT_LIMIT]}}]
+def central_log_dir() -> Path:
+    """OVERSEER_LOG_DIR 환경변수 또는 ~/.claude/overseer-log."""
+    override = os.environ.get("OVERSEER_LOG_DIR")
+    return Path(override) if override else Path.home() / ".claude" / "overseer-log"
 
 
-def notion_add_row(
-    title: str,
+def write_central_log(
     date_str: str,
     project_name: str,
-    hostname: str,
+    session_id: str,
     summary: str,
+    hostname: str,
     commit_url: str | None,
 ) -> None:
-    token = os.environ.get("NOTION_TOKEN")
-    db_id = os.environ.get("NOTION_DB_ID")
-    if not token or not db_id:
-        log("NOTION_TOKEN / NOTION_DB_ID 미설정 → Notion 업데이트 건너뜀")
-        return
-
-    properties = {
-        "세션명": {"title": [{"text": {"content": title}}]},
-        "날짜": {"date": {"start": date_str}},
-        "프로젝트": {"rich_text": _rt(project_name)},
-        "기기": {"rich_text": _rt(hostname)},
-        "요약": {"rich_text": _rt(summary)},
-    }
+    """세션 요약 사본을 ~/.claude/overseer-log/<날짜>/ 에 남긴다."""
+    day_dir = central_log_dir() / date_str
+    day_dir.mkdir(parents=True, exist_ok=True)
+    out = day_dir / f"{project_name}_{session_id[:6]}.md"
+    body = f"# {project_name} ({hostname})\n\n{summary}\n"
     if commit_url:
-        properties["커밋"] = {"url": commit_url}
-
-    # 전체 요약은 페이지 본문(children)에도 넣어 길이 제한을 우회
-    children = [
-        {
-            "object": "block",
-            "type": "paragraph",
-            "paragraph": {"rich_text": _rt(chunk)},
-        }
-        for chunk in _chunks(summary, NOTION_TEXT_LIMIT)
-    ] or None
-
-    payload: dict = {"parent": {"database_id": db_id}, "properties": properties}
-    if children:
-        payload["children"] = children
-
-    req = urllib.request.Request(
-        "https://api.notion.com/v1/pages",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
-            "Notion-Version": NOTION_VERSION,
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            if 200 <= resp.status < 300:
-                log("Notion 행 추가 완료")
-            else:
-                log(f"Notion 응답 코드 {resp.status}")
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")
-        log(f"Notion 추가 실패 (HTTP {exc.code}): {detail}")
-    except urllib.error.URLError as exc:
-        log(f"Notion 네트워크 오류: {exc}")
-
-
-def _chunks(text: str, size: int) -> list[str]:
-    return [text[i : i + size] for i in range(0, len(text), size)] if text else []
+        body += f"\n커밋: {commit_url}\n"
+    out.write_text(body, encoding="utf-8")
+    log(f"중앙 로그 기록: {out}")
 
 
 # --------------------------------------------------------------------------- #
@@ -379,7 +353,6 @@ def main() -> int:
     date_str = now.strftime("%Y-%m-%d")
     hostname = socket.gethostname()
     project_name = os.path.basename(os.path.normpath(project_path))
-    title = f"{date_str}_{project_name}"
 
     # 1. 대화 읽기 (session_id 없으면 최근 세션 자동 감지)
     jsonl = find_session_jsonl(project_path, session_id)
@@ -409,8 +382,8 @@ def main() -> int:
     if sha and repo_url:
         commit_url = f"{repo_url}/commit/{sha}"
 
-    # 6. Notion
-    notion_add_row(title, date_str, project_name, hostname, summary, commit_url)
+    # 6. 중앙 로그 (다음날 아침 다이제스트용)
+    write_central_log(date_str, project_name, session_id, summary, hostname, commit_url)
 
     log("완료 ✅")
     return 0
