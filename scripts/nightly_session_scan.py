@@ -109,6 +109,32 @@ def process_one(jsonl_path: Path, dry_run: bool) -> bool:
 DEFAULT_MAX_AGE_DAYS = 3  # 이보다 오래된 세션은 (첫 실행 시 과거 이력 폭탄 방지) 건드리지 않음
 
 
+def scan(idle_seconds: int = DEFAULT_IDLE_SECONDS, max_age_days: int = DEFAULT_MAX_AGE_DAYS, dry_run: bool = False) -> int:
+    """다른 스크립트(git_sync.py 등)에서도 재사용하는 핵심 스캔 로직. 처리 건수를 반환."""
+    projects_root = Path.home() / ".claude" / "projects"
+    if not projects_root.is_dir():
+        log(f"projects 디렉토리 없음: {projects_root}")
+        return 0
+
+    now_ts = time.time()
+    max_age_seconds = max_age_days * 86400 if max_age_days > 0 else None
+    processed = 0
+    for jsonl_path in projects_root.glob("*/*.jsonl"):
+        try:
+            mtime = jsonl_path.stat().st_mtime
+        except OSError:
+            continue
+        age = now_ts - mtime
+        if max_age_seconds and age > max_age_seconds:
+            continue  # 너무 오래된 세션 — 첫 실행 시 몇 달치 이력이 한꺼번에 요약되는 걸 방지
+        if age < idle_seconds:
+            continue  # 아직 활동 중일 수 있음 — 건드리지 않음
+        if process_one(jsonl_path, dry_run):
+            processed += 1
+
+    return processed
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Overseer idle-session scanner")
     parser.add_argument("--idle-seconds", type=int, default=DEFAULT_IDLE_SECONDS)
@@ -119,27 +145,7 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
-    projects_root = Path.home() / ".claude" / "projects"
-    if not projects_root.is_dir():
-        log(f"projects 디렉토리 없음: {projects_root}")
-        return 0
-
-    now_ts = time.time()
-    max_age_seconds = args.max_age_days * 86400 if args.max_age_days > 0 else None
-    processed = 0
-    for jsonl_path in projects_root.glob("*/*.jsonl"):
-        try:
-            mtime = jsonl_path.stat().st_mtime
-        except OSError:
-            continue
-        age = now_ts - mtime
-        if max_age_seconds and age > max_age_seconds:
-            continue  # 너무 오래된 세션 — 첫 실행 시 몇 달치 이력이 한꺼번에 요약되는 걸 방지
-        if age < args.idle_seconds:
-            continue  # 아직 활동 중일 수 있음 — 건드리지 않음
-        if process_one(jsonl_path, args.dry_run):
-            processed += 1
-
+    processed = scan(args.idle_seconds, args.max_age_days, args.dry_run)
     log(f"완료 — {processed}건 처리 ✅")
     return 0
 

@@ -40,4 +40,5 @@ def snapshot() -> dict:
             "command": command,
             "label": _label_for(command, labels) or command,
         })
+    jobs.sort(key=lambda j: j["label"].casefold())
     return {"user": user, "jobs": jobs}

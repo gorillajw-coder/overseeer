@@ -78,9 +78,10 @@ Ops Dashboard (LAN + Tailscale, http://<서버>:8080/)
 | `scripts/session_end.py` | "/끝" 트리거 — 세션 요약·저장·커밋·push·중앙로그 (발송 없음) |
 | `scripts/nightly_session_scan.py` | "/끝" 없이도 유휴 세션 자동 감지·처리 (기기별 cron/launchd/작업 스케줄러) |
 | `scripts/daily_digest.py` | 아침 다이제스트 — 추적 프로젝트 pull + 전날치 모아 텔레그램+이메일 발송 (cron) |
+| `scripts/git_sync.py` | "깃 동기화해줘" (Claudy 봇) — 지금 바로 세션 체크포인트 + 추적 프로젝트 전체 pull |
 | `agents/server-maintenance-runner.md` | 주간 서버 점검 에이전트 정의 (`~/.claude/agents/` 에 배포) |
 | `bot/main.py` | Claudy 봇 — 텔레그램 ↔ 서버 claude 브리지 (systemd) |
-| `claude_md_rule.md` | `~/.claude/CLAUDE.md` 에 붙일 "/끝" 룰 |
+| `claude_md_rule.md` | `~/.claude/CLAUDE.md` 에 붙일 "/끝" + "깃 동기화" 룰 |
 | `.env.example` | 환경변수 템플릿 → `~/.claude/.env` |
 | `dashboard/server/main.py` | Ops Dashboard 슬림 백엔드 — 미등록 프로세스/git 동기화/진행상황/크론 (systemd) |
 | `dashboard/homepage/` | Ops Dashboard UI (Homepage, 업스트림 오픈소스 clone — 커밋 안 됨, `deploy/build-homepage.sh`로 재현) |

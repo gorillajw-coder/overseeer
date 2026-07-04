@@ -36,8 +36,13 @@ tracked_services:
     label: "Ops Dashboard (Homepage)"
     kind: web
     expected_port: 8000
+  - unit: nginx.service
+    label: "nginx (리버스 프록시)"
+    kind: infra
 
 cron_labels:
+  - match: "nightly_session_scan.py"
+    label: "Overseer 세션 로거"
   - match: "daily_digest.py"
     label: "Overseer 아침 다이제스트"
   - match: "fetch_jobs.py"
