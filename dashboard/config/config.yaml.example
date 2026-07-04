@@ -60,6 +60,8 @@ cron_labels:
     label: "주간 서버 점검 에이전트"
   - match: "wb_wash"
     label: "wb_wash 수집 파이프라인"
+  - match: "inspiration-digest"
+    label: "영감 다이제스트"
 
 tracked_projects:
   - path: /mnt/ssd/family-shopping-bot
@@ -82,4 +84,7 @@ tracked_projects:
     branch: main
   - path: /mnt/hdd/eocs
     label: "EOCS"
+    branch: main
+  - path: /home/gorillajw/projects/inspiration-digest
+    label: "Inspiration Digest"
     branch: main
