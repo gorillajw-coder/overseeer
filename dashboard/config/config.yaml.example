@@ -61,7 +61,7 @@ cron_labels:
   - match: "wb_wash"
     label: "wb_wash 수집 파이프라인"
   - match: "inspiration-digest"
-    label: "영감 다이제스트"
+    label: "오늘의 헛소리"
 
 tracked_projects:
   - path: /mnt/ssd/family-shopping-bot
