@@ -1,15 +1,17 @@
 ---
 title: gnollramy Ops
 theme: dark
+color: indigo
 headerStyle: clean
 layout:
-  서버 상태:
+  Server Status:
     style: row
     columns: 3
-  미등록 프로세스 (평소엔 접힘):
+    useEqualHeights: true
+  Quick Links:
+    style: row
+    columns: 4
+  Unregistered Process:
     style: row
     columns: 1
     initiallyCollapsed: true
-  바로가기:
-    style: row
-    columns: 4

@@ -77,6 +77,7 @@ def _service_state(unit: str, user_unit: bool) -> str:
 def snapshot() -> dict:
     cfg = load_config()
     tracked = {s["unit"]: s for s in cfg.get("tracked_services", [])}
+    ignore_patterns = cfg.get("orphan_ignore_patterns", [])
 
     ports = _listening_ports()
     tracked_ports: list[dict] = []
@@ -90,7 +91,9 @@ def snapshot() -> dict:
         elif unit:
             unlabeled_units.append({"port": port, "unit": unit, **_process_info(pid)})
         else:
-            orphans.append({"port": port, **_process_info(pid)})
+            info = _process_info(pid)
+            info["ignored"] = any(p in (info.get("cmdline") or "") for p in ignore_patterns)
+            orphans.append({"port": port, **info})
 
     tracked_status = [
         {

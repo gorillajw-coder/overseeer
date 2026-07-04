@@ -2,8 +2,9 @@
 # For configuration options and examples, please see:
 # https://gethomepage.dev/configs/services/
 
-- 서버 상태:
-    - ⚠️ 문제 상황:
+- Server Status:
+    - Alert:
+        id: alert
         href: "#"
         icon: mdi-alert-#facc15
         description: 확인이 필요한 것만 모음 — 비어있으면 전부 정상
@@ -16,31 +17,8 @@
             name: label
             label: detail
 
-    - 추적 서비스:
-        href: "#"
-        description: eocs / filemanager / shopping-bot / claudy-bot / rclone
-        widget:
-          type: customapi
-          url: http://127.0.0.1:8010/api/services
-          display: dynamic-list
-          mappings:
-            items: tracked_visible
-            name: label
-            label: state
-
-    - Git 동기화:
-        href: "#"
-        description: 추적 프로젝트별 origin(GitHub) 대비 ahead/behind
-        widget:
-          type: customapi
-          url: http://127.0.0.1:8010/api/git
-          display: dynamic-list
-          mappings:
-            items: projects
-            name: label
-            label: summary
-
     - 프로젝트 진행상황:
+        id: progress
         href: "#"
         description: 각 프로젝트 최근 세션 요약 (.claude-sessions)
         widget:
@@ -52,7 +30,34 @@
             name: label
             label: date
 
+    - Git 동기화:
+        id: git-sync
+        href: "#"
+        description: 추적 프로젝트별 origin(GitHub) 대비 ahead/behind
+        widget:
+          type: customapi
+          url: http://127.0.0.1:8010/api/git
+          display: dynamic-list
+          mappings:
+            items: projects
+            name: label
+            label: summary
+
+    - 추적 서비스:
+        id: tracked-services
+        href: "#"
+        description: eocs / filemanager / shopping-bot / claudy-bot / rclone
+        widget:
+          type: customapi
+          url: http://127.0.0.1:8010/api/services
+          display: dynamic-list
+          mappings:
+            items: tracked_visible
+            name: label
+            label: state
+
     - 크론 작업:
+        id: cron
         href: "#"
         description: crontab -l (gorillajw)
         widget:
@@ -64,20 +69,7 @@
             name: label
             label: schedule
 
-- 미등록 프로세스 (평소엔 접힘):
-    - 미등록 프로세스:
-        href: "#"
-        description: 리스닝 포트를 열었지만 systemd 유닛에 등록 안 된 프로세스 — 있으면 확인 필요
-        widget:
-          type: customapi
-          url: http://127.0.0.1:8010/api/services
-          display: dynamic-list
-          mappings:
-            items: orphans
-            name: cmdline
-            label: port
-
-- 바로가기:
+- Quick Links:
     - EOCS:
         href: https://gnoll.tplinkdns.com/
         description: CV builder
@@ -93,3 +85,17 @@
     - Netdata:
         href: http://homeserver:19999/
         description: 리소스/서비스 상세 모니터링 (Tailscale MagicDNS)
+
+- Unregistered Process:
+    - Unregistered Process:
+        id: orphans
+        href: "#"
+        description: 리스닝 포트를 열었지만 systemd 유닛에 등록 안 된 프로세스 — 있으면 확인 필요
+        widget:
+          type: customapi
+          url: http://127.0.0.1:8010/api/services
+          display: dynamic-list
+          mappings:
+            items: orphans
+            name: cmdline
+            label: port

@@ -66,9 +66,9 @@ def api_issues():
         if s["state"] != "active":
             issues.append({"label": s["label"], "detail": f"상태: {s['state']}"})
 
-    orphan_count = len(services["orphans"])
-    if orphan_count:
-        issues.append({"label": "미등록 프로세스", "detail": f"{orphan_count}개 발견"})
+    real_orphans = [o for o in services["orphans"] if not o.get("ignored")]
+    if real_orphans:
+        issues.append({"label": "미등록 프로세스", "detail": f"{len(real_orphans)}개 발견"})
 
     cache = git_sync.get_cache()
     for proj in cache.values():
