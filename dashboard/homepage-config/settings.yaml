@@ -1,7 +1,7 @@
 ---
 title: gnollramy Ops
 theme: dark
-color: indigo
+color: neutral
 headerStyle: clean
 layout:
   Server Status:
