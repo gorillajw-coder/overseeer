@@ -32,10 +32,12 @@ tracked_services:
     label: "Ops Dashboard 백엔드"
     kind: web
     expected_port: 8010
+    hidden: true
   - unit: homepage.service
     label: "Ops Dashboard (Homepage)"
     kind: web
     expected_port: 8000
+    hidden: true
   - unit: nginx.service
     label: "nginx (리버스 프록시)"
     kind: infra

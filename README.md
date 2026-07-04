@@ -84,7 +84,8 @@ Ops Dashboard (LAN + Tailscale, http://<서버>:8080/)
 | `claude_md_rule.md` | `~/.claude/CLAUDE.md` 에 붙일 "/끝" + "깃 동기화" 룰 |
 | `.env.example` | 환경변수 템플릿 → `~/.claude/.env` |
 | `dashboard/server/main.py` | Ops Dashboard 슬림 백엔드 — 미등록 프로세스/git 동기화/진행상황/크론 (systemd) |
-| `dashboard/homepage/` | Ops Dashboard UI (Homepage, 업스트림 오픈소스 clone — 커밋 안 됨, `deploy/build-homepage.sh`로 재현) |
+| `dashboard/homepage/` | Ops Dashboard UI (Homepage, 업스트림 오픈소스 clone — 자체 .git 있어 nested repo라 커밋 안 됨) |
+| `dashboard/homepage-config/` | Homepage 설정 YAML (우리가 직접 고친 것, 커밋됨) — 빌드 시 `homepage/config/`로 복사됨 |
 | `agents/dashboard-config-sync.md` | 대시보드 config.yaml 드리프트(미등록 서비스/프로젝트/크론) 확인·제안 에이전트 (`~/.claude/agents/` 에 배포, Claudy 봇으로 트리거) |
 
 스크립트는 표준 라이브러리만 사용한다 (anthropic SDK 불필요).
@@ -163,7 +164,9 @@ git clone --depth 1 https://github.com/gethomepage/homepage.git homepage
 sudo cp deploy/homepage.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now homepage.service
 ```
-설정은 `dashboard/homepage/config/*.yaml` (services.yaml에 백엔드 API 연결 이미 구성됨). 재빌드 시 `./deploy/build-homepage.sh && sudo systemctl restart homepage.service`.
+설정은 `dashboard/homepage-config/*.yaml`에 커밋되어 있고(services.yaml에 백엔드 API 연결 이미 구성됨),
+빌드 스크립트가 매번 `homepage/config/`로 복사한다. 설정을 고칠 땐 `homepage-config/`쪽을 수정할 것
+(그래야 재빌드해도 안 사라짐). 재빌드 시 `./deploy/build-homepage.sh && sudo systemctl restart homepage.service`.
 
 **7-3. Netdata** (리소스/서비스별 자원/알림/로그, 네이티브 systemd, 포트 19999):
 ```bash

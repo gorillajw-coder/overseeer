@@ -1,0 +1,15 @@
+---
+title: gnollramy Ops
+theme: dark
+headerStyle: clean
+layout:
+  서버 상태:
+    style: row
+    columns: 3
+  미등록 프로세스 (평소엔 접힘):
+    style: row
+    columns: 1
+    initiallyCollapsed: true
+  바로가기:
+    style: row
+    columns: 4

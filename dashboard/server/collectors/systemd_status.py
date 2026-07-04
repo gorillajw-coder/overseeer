@@ -93,12 +93,19 @@ def snapshot() -> dict:
             orphans.append({"port": port, **_process_info(pid)})
 
     tracked_status = [
-        {"unit": unit, "label": meta["label"], "state": _service_state(unit, meta.get("user_unit", False))}
+        {
+            "unit": unit,
+            "label": meta["label"],
+            "state": _service_state(unit, meta.get("user_unit", False)),
+            "hidden": meta.get("hidden", False),
+        }
         for unit, meta in tracked.items()
     ]
+    tracked_visible = [s for s in tracked_status if not s["hidden"]]
 
     return {
         "tracked": tracked_status,
+        "tracked_visible": tracked_visible,
         "tracked_ports": tracked_ports,
         "unlabeled_systemd": unlabeled_units,
         "orphans": orphans,

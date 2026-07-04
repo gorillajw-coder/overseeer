@@ -10,6 +10,7 @@ venv/
 # 대시보드 실제 설정 (경로/라벨이 이 서버 전용)
 dashboard/config/config.yaml
 
-# Homepage — 업스트림 오픈소스를 통째로 clone+build한 것, 커밋 안 함 (README 설치 절차로 재현)
+# Homepage — 업스트림 오픈소스를 통째로 clone+build한 것 (자체 .git 있음, nested repo라 추적 불가)
+# 커밋 안 함 — 설정 YAML은 dashboard/homepage-config/ 에 따로 두고 빌드 시 복사함
 dashboard/homepage/
 .pnpm-store/

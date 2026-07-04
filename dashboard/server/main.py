@@ -53,3 +53,26 @@ def api_git():
 @app.get("/api/progress")
 def api_progress():
     return progress.snapshot()
+
+
+@app.get("/api/issues")
+def api_issues():
+    """평소엔 안 봐도 되는 세부 정보를 다 걷어내고, "지금 확인이 필요한 것"만 모은 목록.
+    비어있으면 전부 정상."""
+    issues: list[dict] = []
+
+    services = systemd_status.snapshot()
+    for s in services["tracked"]:  # hidden 서비스도 문제가 있으면 여기엔 나와야 함
+        if s["state"] != "active":
+            issues.append({"label": s["label"], "detail": f"상태: {s['state']}"})
+
+    orphan_count = len(services["orphans"])
+    if orphan_count:
+        issues.append({"label": "미등록 프로세스", "detail": f"{orphan_count}개 발견"})
+
+    cache = git_sync.get_cache()
+    for proj in cache.values():
+        if proj.get("status") == "error":
+            issues.append({"label": proj["label"], "detail": proj.get("summary", "동기화 확인 불가")})
+
+    return {"issues": issues, "ok": not issues}
