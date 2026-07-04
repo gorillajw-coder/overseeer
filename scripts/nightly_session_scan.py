@@ -23,6 +23,7 @@ import argparse
 import datetime as dt
 import json
 import socket
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -38,8 +39,21 @@ def log(msg: str) -> None:
     print(f"[overseer-scan] {msg}", file=sys.stderr)
 
 
+def _git_root(path: str) -> str | None:
+    try:
+        out = subprocess.run(
+            ["git", "-C", path, "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return out.stdout.strip() or None if out.returncode == 0 else None
+    except (subprocess.SubprocessError, OSError):
+        return None
+
+
 def find_cwd(jsonl_path: Path) -> str | None:
-    """세션 transcript에서 실제 프로젝트 경로(cwd)를 읽는다 — 인코딩된 폴더명보다 신뢰도 높음."""
+    """세션 transcript에서 실제 프로젝트 경로(cwd)를 읽는다 — 인코딩된 폴더명보다 신뢰도 높음.
+    git 저장소 하위 폴더에서 작업한 세션이면, .claude-sessions/가 저장소 루트 한 곳으로
+    모이도록 저장소 루트로 승격한다 (그래야 대시보드가 항상 같은 위치를 본다)."""
     try:
         with jsonl_path.open(encoding="utf-8", errors="replace") as f:
             for raw in f:
@@ -52,7 +66,7 @@ def find_cwd(jsonl_path: Path) -> str | None:
                     continue
                 cwd = obj.get("cwd")
                 if isinstance(cwd, str) and cwd:
-                    return cwd
+                    return _git_root(cwd) or cwd
     except OSError:
         return None
     return None
