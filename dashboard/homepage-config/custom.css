@@ -50,3 +50,8 @@ h1, h2, h3, h4, p, span, div, a, li, td, th {
 a:hover {
   color: #a3ffa3 !important;
 }
+
+/* 맨 위 그룹 제목("Overseeer") — 두껍게 */
+.service-group-name {
+  font-weight: 800 !important;
+}

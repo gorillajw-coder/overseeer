@@ -4,7 +4,7 @@ theme: dark
 color: neutral
 headerStyle: clean
 layout:
-  Server Status:
+  Overseeer:
     style: row
     columns: 3
     useEqualHeights: true

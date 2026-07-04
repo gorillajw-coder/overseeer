@@ -2,12 +2,11 @@
 # For configuration options and examples, please see:
 # https://gethomepage.dev/configs/services/
 
-- Server Status:
+- Overseeer:
     - Alert:
         id: alert
         href: "#"
         icon: mdi-alert-#facc15
-        description: 확인이 필요한 것만 모음 — 비어있으면 전부 정상
         widget:
           type: customapi
           url: http://127.0.0.1:8010/api/issues
@@ -17,10 +16,9 @@
             name: label
             label: detail
 
-    - 프로젝트 진행상황:
+    - Project Status:
         id: progress
         href: "#"
-        description: 각 프로젝트 최근 세션 요약 (.claude-sessions)
         widget:
           type: customapi
           url: http://127.0.0.1:8010/api/progress
@@ -30,10 +28,9 @@
             name: label
             label: date
 
-    - Git 동기화:
+    - Git Sync:
         id: git-sync
         href: "#"
-        description: 추적 프로젝트별 origin(GitHub) 대비 ahead/behind
         widget:
           type: customapi
           url: http://127.0.0.1:8010/api/git
@@ -43,10 +40,9 @@
             name: label
             label: summary
 
-    - 추적 서비스:
+    - Tracked Services:
         id: tracked-services
         href: "#"
-        description: eocs / filemanager / shopping-bot / claudy-bot / rclone
         widget:
           type: customapi
           url: http://127.0.0.1:8010/api/services
@@ -56,10 +52,9 @@
             name: label
             label: state
 
-    - 크론 작업:
+    - Cron Services:
         id: cron
         href: "#"
-        description: crontab -l (gorillajw)
         widget:
           type: customapi
           url: http://127.0.0.1:8010/api/cron
