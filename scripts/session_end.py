@@ -297,10 +297,25 @@ def write_and_commit(
             text=True,
         ).stdout.strip()
         log(f"커밋 완료: {sha[:8]}")
-        return sha
     except subprocess.CalledProcessError as exc:
         log(f"git 커밋 실패(변경 없음일 수 있음): {exc.stderr.decode(errors='replace') if exc.stderr else exc}")
         return None
+
+    try:
+        subprocess.run(
+            ["git", "-C", project_path, "push"],
+            check=True,
+            capture_output=True,
+            timeout=30,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+        log("push 완료 — 다른 기기/서버가 다음 동기화 때 이 기록을 받는다")
+    except subprocess.TimeoutExpired:
+        log("git push 시간 초과 (네트워크?) — 커밋은 로컬에 남아있음, 나중에 수동 push 필요")
+    except subprocess.CalledProcessError as exc:
+        log(f"git push 실패(오프라인/업스트림 없음일 수 있음, 커밋은 로컬에 남음): {exc.stderr.decode(errors='replace') if exc.stderr else exc}")
+
+    return sha
 
 
 # --------------------------------------------------------------------------- #

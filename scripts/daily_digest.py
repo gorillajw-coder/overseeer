@@ -27,6 +27,7 @@ import json
 import os
 import smtplib
 import ssl
+import subprocess
 import sys
 import urllib.error
 import urllib.parse
@@ -68,19 +69,78 @@ def central_log_dir() -> Path:
 
 
 # --------------------------------------------------------------------------- #
-# 어제 세션 모으기
+# 어제 세션 모으기 — 이 기기의 중앙 로그 + (git pull 후) 추적 프로젝트들의 .claude-sessions/
+#
+# 여러 기기(서버/맥/회사PC)가 각자 session_end.py / nightly_session_scan.py로 커밋+push
+# 한 걸, 다이제스트 생성 시점에 이 서버가 pull해서 한데 모은다. 어느 기기에서 됐든 다 잡힘.
 # --------------------------------------------------------------------------- #
-def collect_sessions(date_str: str) -> list[tuple[str, str]]:
-    """(파일명, 본문) 목록. 없으면 빈 리스트."""
-    day_dir = central_log_dir() / date_str
-    if not day_dir.exists():
+def _short_id_from_filename(name: str) -> str | None:
+    stem = name[:-3] if name.endswith(".md") else name
+    tail = stem.rsplit("_", 1)[-1]
+    return tail if len(tail) == 6 else None
+
+
+def tracked_project_paths() -> list[str]:
+    """Ops Dashboard 백엔드(127.0.0.1:8010)에서 추적 프로젝트 경로 목록을 가져온다.
+    (config.yaml을 여기서 다시 파싱하지 않고 대시보드를 단일 소스로 재사용 — yaml 의존성도 안 늘어남)
+    """
+    url = "http://127.0.0.1:8010/api/progress"
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        return [p["path"] for p in data.get("projects", []) if p.get("path")]
+    except Exception as exc:  # noqa: BLE001 - 대시보드가 꺼져있어도 로컬 중앙 로그로는 계속 동작해야 함
+        log(f"대시보드 백엔드에서 추적 프로젝트 목록 조회 실패 (건너뜀): {exc}")
         return []
-    out = []
-    for f in sorted(day_dir.glob("*.md")):
-        try:
-            out.append((f.name, f.read_text(encoding="utf-8", errors="replace")))
-        except OSError:
+
+
+def pull_tracked_projects(paths: list[str]) -> None:
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    for path in paths:
+        if not os.path.isdir(os.path.join(path, ".git")):
             continue
+        try:
+            subprocess.run(
+                ["git", "-C", path, "pull", "--ff-only"],
+                check=True, capture_output=True, timeout=30, env=env,
+            )
+        except Exception as exc:  # noqa: BLE001 - 한 저장소 pull 실패가 나머지를 막으면 안 됨
+            log(f"git pull 실패 (건너뜀): {path} — {exc}")
+
+
+def collect_sessions(date_str: str) -> list[tuple[str, str]]:
+    """(파일명, 본문) 목록 — 로컬 중앙 로그 + 추적 프로젝트들의 .claude-sessions/, 중복 제거."""
+    seen: set[str] = set()
+    out: list[tuple[str, str]] = []
+
+    day_dir = central_log_dir() / date_str
+    if day_dir.exists():
+        for f in sorted(day_dir.glob("*.md")):
+            try:
+                out.append((f.name, f.read_text(encoding="utf-8", errors="replace")))
+            except OSError:
+                continue
+            sid = _short_id_from_filename(f.name)
+            if sid:
+                seen.add(sid)
+
+    paths = tracked_project_paths()
+    pull_tracked_projects(paths)
+    for path in paths:
+        sessions_dir = Path(path) / ".claude-sessions"
+        if not sessions_dir.is_dir():
+            continue
+        for f in sorted(sessions_dir.glob(f"{date_str}_*.md")):
+            sid = _short_id_from_filename(f.name)
+            if sid and sid in seen:
+                continue  # 이미 로컬 중앙 로그에 있음 (이 기기에서 난 세션)
+            try:
+                out.append((f.name, f.read_text(encoding="utf-8", errors="replace")))
+            except OSError:
+                continue
+            if sid:
+                seen.add(sid)
+
     return out
 
 

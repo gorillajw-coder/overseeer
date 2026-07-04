@@ -1,0 +1,73 @@
+server:
+  host: 127.0.0.1
+  port: 8010   # 로컬 전용 — nginx로 노출 안 함, Homepage가 서버사이드로만 호출
+  refresh:
+    git_minutes: 10   # 백그라운드 git fetch 주기 (분)
+
+system:
+  crontab_user: gorillajw
+
+# 리소스(CPU/메모리/디스크) 모니터링 + 임계치 알림은 Netdata(네이티브, 포트 19999)가 담당 — 여기서 다루지 않음.
+
+tracked_services:
+  - unit: eocs.service
+    label: "EOCS (CV builder)"
+    kind: web
+    expected_port: 9000
+  - unit: filemanager.service
+    label: "FileManager"
+    kind: web
+    expected_port: 8100
+  - unit: shopping-bot.service
+    label: "Family Shopping Bot"
+    kind: bot
+  - unit: claudy-bot.service
+    label: "Claudy Bot"
+    kind: bot
+  - unit: rclone-gdrive.service
+    label: "rclone Google Drive mount"
+    kind: mount
+    user_unit: true
+  - unit: dashboard-backend.service
+    label: "Ops Dashboard 백엔드"
+    kind: web
+    expected_port: 8010
+  - unit: homepage.service
+    label: "Ops Dashboard (Homepage)"
+    kind: web
+    expected_port: 8000
+
+cron_labels:
+  - match: "daily_digest.py"
+    label: "Overseer 아침 다이제스트"
+  - match: "fetch_jobs.py"
+    label: "WB Job Dashboard 수집"
+  - match: "wb-job-dashboard/notify_telegram.py"
+    label: "WB Job Dashboard 알림"
+  - match: "server-maintenance-runner"
+    label: "주간 서버 점검 에이전트"
+  - match: "wb_wash"
+    label: "wb_wash 수집 파이프라인"
+
+tracked_projects:
+  - path: /mnt/ssd/family-shopping-bot
+    label: "Family Shopping Bot"
+    branch: main
+  - path: /mnt/ssd/filemanager
+    label: "FileManager"
+    branch: main
+  - path: /mnt/ssd/wb-job-dashboard
+    label: "WB Job Dashboard"
+    branch: master
+  - path: /mnt/ssd/wb_wash
+    label: "wb_wash"
+    branch: main
+  - path: /mnt/ssd/overseeer
+    label: "Overseer"
+    branch: main
+  - path: /mnt/hdd/RussianTrans
+    label: "RussianTrans"
+    branch: main
+  - path: /mnt/hdd/eocs
+    label: "EOCS"
+    branch: main

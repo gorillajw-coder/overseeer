@@ -1,0 +1,18 @@
+[Unit]
+Description=Overseer Ops Dashboard (Homepage UI)
+After=network.target dashboard-backend.service
+Wants=dashboard-backend.service
+
+[Service]
+User=gorillajw
+WorkingDirectory=/mnt/ssd/overseeer/dashboard/homepage/.next/standalone
+Environment=HOMEPAGE_ALLOWED_HOSTS=*
+Environment=HOMEPAGE_CONFIG_DIR=/mnt/ssd/overseeer/dashboard/homepage/config
+Environment=PORT=8000
+Environment=HOSTNAME=127.0.0.1
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

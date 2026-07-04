@@ -31,6 +31,7 @@ Work through these systematically, skipping items that don't apply and noting wh
 8. **Security Audit**: Review failed/successful SSH logins, open listening ports (`ss -tulpn`), firewall status, and any unexpected new users or cron entries. Check for pending security advisories.
 9. **Time Sync & Certificates**: Verify NTP/time sync is active and check for TLS certificates nearing expiry.
 10. **Cleanup**: Remove orphaned packages and caches where safe (`apt autoremove`, package cache cleanup) after confirmation.
+11. **VS Code Server hygiene**: Check `~/.vscode-server/extensions/.obsolete` for stale extension-version directories not cleaned up after updates, and check `~/.vscode-server/data/CachedExtensionVSIXs` size — both are safe to remove (VS Code re-downloads/re-links as needed) and tend to silently grow to several hundred MB. Report total `~/.vscode-server` size; clean up after confirmation if it exceeds ~1.5GB.
 
 ## Workflow
 1. Announce the start of the weekly maintenance run and the target server/context.
