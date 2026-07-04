@@ -1,11 +1,15 @@
 /* 매트릭스 스타일 — 검은 배경 + 초록 글자, 터미널 느낌 */
 
+@import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic+Coding:wght@400;700&display=swap');
+
 html, body, #__next {
   background-color: #000 !important;
 }
 
+/* 한글+영문 굵기가 통일되게 코딩용 한글 monospace 폰트 하나로 (영문 monospace만 쓰면
+   한글은 시스템 기본 폰트로 fallback되면서 굵기가 확 달라 보임) */
 body, input, select, textarea {
-  font-family: "Courier New", Consolas, monospace !important;
+  font-family: "Nanum Gothic Coding", "Courier New", Consolas, monospace !important;
 }
 
 /* 카드 — 완전 검정보다 살짝 밝은 톤 + 초록 테두리로 경계만 구분 */
@@ -14,8 +18,10 @@ body, input, select, textarea {
   border: 1px solid #1a4d1a !important;
 }
 
-.font-thin {
-  font-weight: 500 !important;
+/* 항목 이름(thin)과 값(bold) 굵기 차이를 없애 통일된 느낌으로 */
+.font-thin,
+.font-bold {
+  font-weight: 700 !important;
 }
 
 /* 기본 텍스트는 전부 초록 (아이콘 색 등 인라인 지정된 건 그대로 유지됨) */
