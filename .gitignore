@@ -1,0 +1,7 @@
+*
+!.gitignore
+!.claude-sessions/
+!.claude-sessions/**
+!claudy-workspace/
+!claudy-workspace/.claude-sessions/
+!claudy-workspace/.claude-sessions/**
