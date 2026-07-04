@@ -12,7 +12,7 @@ rm -rf homepage/.next/standalone/.next/static homepage/.next/standalone/public
 cp -r homepage/.next/static homepage/.next/standalone/.next/static
 cp -r homepage/public homepage/.next/standalone/public
 
-# 우리가 직접 고친 설정 YAML(레포에 커밋되어 있음)을 새로 빌드한 homepage/config/ 위에 덮어씀
-cp homepage-config/*.yaml homepage/config/
+# 우리가 직접 고친 설정 YAML + custom.css(레포에 커밋되어 있음)를 새로 빌드한 homepage/config/ 위에 덮어씀
+cp homepage-config/*.yaml homepage-config/custom.css homepage/config/
 
 echo "빌드 완료 → sudo systemctl restart homepage.service 로 반영"
