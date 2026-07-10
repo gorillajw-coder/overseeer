@@ -74,10 +74,24 @@ def find_cwd(jsonl_path: Path) -> str | None:
 
 def already_summarized(project_path: str, session_id: str) -> bool:
     sessions_dir = Path(project_path) / ".claude-sessions"
-    if not sessions_dir.is_dir():
-        return False
     short_id = session_id[:6]
-    return any(sessions_dir.glob(f"*_{short_id}.md"))
+    if sessions_dir.is_dir() and any(sessions_dir.glob(f"*_{short_id}.md")):
+        return True
+    # Hermes 대기 큐에 이미 있으면 중복 등록 방지
+    pending = Path.home() / ".claude" / "overseer-pending"
+    if pending.is_dir():
+        for jp in pending.glob(f"*_{session_id[:8]}.json"):
+            return True
+        # short id fallback
+        for jp in pending.glob("*.json"):
+            try:
+                import json
+                job = json.loads(jp.read_text(encoding="utf-8"))
+                if (job.get("session_id") or "").startswith(session_id[:6]):
+                    return True
+            except Exception:
+                pass
+    return False
 
 
 def process_one(jsonl_path: Path, dry_run: bool) -> bool:
@@ -105,18 +119,16 @@ def process_one(jsonl_path: Path, dry_run: bool) -> bool:
     if not transcript:
         transcript = "(세션 대화 내용을 찾지 못했습니다.)"
     dev_plan = se.find_dev_plan(project_path)
-    summary = se.summarize(transcript, dev_plan)
-    sha = se.write_and_commit(project_path, session_id, summary, hostname, now)
-
-    commit_url = None
-    import os
-
-    repo_url = os.environ.get("GITHUB_REPO_URL", "").rstrip("/")
-    if sha and repo_url:
-        commit_url = f"{repo_url}/commit/{sha}"
-
-    project_name = Path(project_path).name
-    se.write_central_log(now.strftime("%Y-%m-%d"), project_name, session_id, summary, hostname, commit_url)
+    # API 직접 호출 없음 — Hermes(Grok OAuth) 대기 큐에 등록
+    job_path = se.enqueue_summary_job(
+        transcript=transcript,
+        dev_plan=dev_plan,
+        project_path=project_path,
+        session_id=session_id,
+        hostname=hostname,
+        now=now,
+    )
+    log(f"  Hermes 요약 대기: {job_path.name}")
     return True
 
 

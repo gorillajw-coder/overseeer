@@ -165,7 +165,7 @@ def find_dev_plan(project_path: str) -> str | None:
 
 
 # --------------------------------------------------------------------------- #
-# Claude API 요약 (stdlib urllib — anthropic SDK 불필요)
+# Hermes/Grok 요약 대기 큐 (API 직접 호출 없음 — OAuth 기반 Hermes가 처리)
 # --------------------------------------------------------------------------- #
 SUMMARY_PROMPT = """다음은 Claude Code 세션 대화 내용입니다.
 {plan_section}아래 형식의 한국어 마크다운으로 **간략히** 요약하세요. 다른 말은 붙이지 마세요.
@@ -187,52 +187,59 @@ SUMMARY_PROMPT = """다음은 Claude Code 세션 대화 내용입니다.
 {transcript}
 """
 
+PENDING_DIR = Path.home() / ".claude" / "overseer-pending"
 
-def summarize(transcript: str, dev_plan: str | None) -> str:
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        log("ANTHROPIC_API_KEY 가 설정되지 않았습니다.")
-        return "(요약 실패: ANTHROPIC_API_KEY 없음)"
 
+def pending_dir() -> Path:
+    d = PENDING_DIR
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def enqueue_summary_job(
+    *,
+    transcript: str,
+    dev_plan: str | None,
+    project_path: str,
+    session_id: str,
+    hostname: str,
+    now: dt.datetime,
+) -> Path:
+    """요약 작업을 대기 큐에 넣고 경로를 반환. Hermes(Grok OAuth)가 처리."""
     plan_section = ""
     if dev_plan:
         plan_section = (
             "참고용 계획서(Development plan)도 함께 제공합니다. 진행 상황을 계획서와 "
             "대조해서 요약하세요.\n\n[계획서]\n" + dev_plan[:20_000] + "\n\n"
         )
+    prompt = SUMMARY_PROMPT.format(plan_section=plan_section, transcript=transcript[:120_000])
 
-    prompt = SUMMARY_PROMPT.format(plan_section=plan_section, transcript=transcript)
-    payload = {
-        "model": SUMMARY_MODEL,
-        "max_tokens": 1500,
-        "messages": [{"role": "user", "content": prompt}],
+    job = {
+        "type": "session_summary",
+        "created_at": now.isoformat(timespec="seconds"),
+        "date": now.strftime("%Y-%m-%d"),
+        "project_path": project_path,
+        "project_name": os.path.basename(os.path.normpath(project_path)),
+        "session_id": session_id,
+        "hostname": hostname,
+        "dev_plan_present": bool(dev_plan),
+        "transcript_chars": len(transcript),
+        "prompt": prompt,
+        "transcript": transcript[:120_000],
+        "dev_plan": (dev_plan or "")[:20_000],
+        "status": "pending",
     }
-    req = urllib.request.Request(
-        ANTHROPIC_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "x-api-key": api_key,
-            "anthropic-version": ANTHROPIC_VERSION,
-            "content-type": "application/json",
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        parts = [
-            b.get("text", "")
-            for b in data.get("content", [])
-            if b.get("type") == "text"
-        ]
-        return "".join(parts).strip() or "(요약 실패: 빈 응답)"
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode(errors="replace")
-        log(f"Claude API 호출 실패 (HTTP {exc.code}): {detail}")
-        return f"(요약 실패: HTTP {exc.code})"
-    except Exception as exc:  # noqa: BLE001 - API 실패해도 파이프라인은 계속
-        log(f"Claude API 호출 실패: {exc}")
-        return f"(요약 실패: {exc})"
+    short = session_id[:8]
+    out = pending_dir() / f"{now.strftime('%Y%m%d_%H%M%S')}_{short}.json"
+    out.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
+    log(f"요약 대기 큐 등록: {out}")
+    return out
+
+
+def summarize(transcript: str, dev_plan: str | None) -> str | None:
+    """하위 호환용. 직접 요약하지 않고 None을 반환 → 호출측에서 enqueue 사용 권장."""
+    log("summarize() 직접 호출됨 → API 미사용, enqueue_summary_job 사용 권장")
+    return None
 
 
 # --------------------------------------------------------------------------- #
@@ -385,22 +392,17 @@ def main() -> int:
     if dev_plan:
         log("Development plan 발견 — 요약에 반영")
 
-    # 3. 요약
-    summary = summarize(transcript, dev_plan)
-
-    # 4~5. 저장 + 커밋
-    sha = write_and_commit(project_path, session_id, summary, hostname, now)
-
-    # 커밋 링크
-    commit_url = None
-    repo_url = os.environ.get("GITHUB_REPO_URL", "").rstrip("/")
-    if sha and repo_url:
-        commit_url = f"{repo_url}/commit/{sha}"
-
-    # 6. 중앙 로그 (다음날 아침 다이제스트용)
-    write_central_log(date_str, project_name, session_id, summary, hostname, commit_url)
-
-    log("완료 ✅")
+    # 3. 요약은 Hermes(Grok OAuth)가 처리 → 대기 큐에만 등록
+    job_path = enqueue_summary_job(
+        transcript=transcript,
+        dev_plan=dev_plan,
+        project_path=project_path,
+        session_id=session_id,
+        hostname=hostname,
+        now=now,
+    )
+    log(f"Hermes 요약 대기: {job_path.name} (API 직접 호출 없음)")
+    log("완료 ✅ (요약 큐 등록)")
     return 0
 
 
