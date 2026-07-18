@@ -1,0 +1,16 @@
+[Unit]
+Description=Claudy — Telegram <-> claude CLI bridge bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gorillajw
+WorkingDirectory=/data/ssd/overseeer/bot
+EnvironmentFile=/data/main/claude/.env
+ExecStart=/data/ssd/overseeer/bot/venv/bin/python3 /data/ssd/overseeer/bot/main.py
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

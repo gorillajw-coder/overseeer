@@ -6,6 +6,6 @@
     label: 시스템 리소스
     cpu: true
     memory: true
-    disk: ["/", "/mnt/ssd", "/mnt/hdd"]
+    disk: ["/", "/data/ssd", "/data/hdd", "/data/main"]
     # /tmp(tmpfs)는 Homepage의 리소스 위젯이 인식 못 함(systeminformation 라이브러리가
     # tmpfs를 "드라이브"로 안 봄) — Netdata(:19999)가 대신 감시함.
