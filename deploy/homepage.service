@@ -1,0 +1,19 @@
+[Unit]
+Description=Overseer Ops Dashboard UI (Homepage, Next.js standalone, :8000)
+After=network-online.target dashboard-backend.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=gorillajw
+WorkingDirectory=/data/ssd/overseeer/dashboard/homepage/.next/standalone
+Environment=PORT=8000
+Environment=HOSTNAME=127.0.0.1
+# Caddy :80 reverse_proxy sends Host without :8000 (e.g. 127.0.0.1, Tailscale IP)
+Environment=HOMEPAGE_ALLOWED_HOSTS=127.0.0.1,localhost,100.72.47.109,gnollramy,192.168.0.182
+ExecStart=/home/gorillajw/.local/bin/node server.js
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

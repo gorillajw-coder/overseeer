@@ -66,20 +66,20 @@
 
 - Quick Links:
     - EOCS:
-        href: https://gnoll.tplinkdns.com/
-        description: CV builder
+        href: http://100.72.47.109:9080/
+        description: CV builder (Caddy → :9000)
 
     - FileManager:
-        href: https://gnoll.tplinkdns.com/filemanager/
-        description: 파일 관리
+        href: http://100.72.47.109/filemanager/
+        description: 파일 관리 (Caddy → :8100)
 
-    - WB Job Dashboard:
-        href: https://gnoll.tplinkdns.com/wb/
-        description: 채용 공고 대시보드
+    - Glances:
+        href: http://100.72.47.109:61208/
+        description: gnollramy 리소스 모니터
 
-    - Netdata:
+    - Netdata (old homeserver):
         href: http://homeserver:19999/
-        description: 리소스/서비스 상세 모니터링 (Tailscale MagicDNS)
+        description: 옛 홈서버 Netdata (TS MagicDNS)
 
 - Unregistered Process:
     - Unregistered Process:

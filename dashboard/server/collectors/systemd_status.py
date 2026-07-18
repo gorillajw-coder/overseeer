@@ -6,8 +6,9 @@ systemd 유닛인지, 그중 config.yaml에 등록된 것인지"만 판별한다
 """
 from __future__ import annotations
 
+import os
+import pwd
 import re
-import shlex
 import subprocess
 from pathlib import Path
 
@@ -17,13 +18,24 @@ from config import load_config
 
 _PID_RE = re.compile(r"pid=(\d+)")
 _UNIT_RE = re.compile(r"([^/]+\.service)$")
+_USER = "gorillajw"
 
-
-def _run(cmd: list[str]) -> str:
+def _run(cmd: list[str], env: dict[str, str] | None = None) -> str:
+    """Execute shell command; systemd --user requires XDG_RUNTIME_DIR set correctly."""
     try:
-        return subprocess.run(cmd, capture_output=True, text=True, timeout=5).stdout
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=5, env=env).stdout
     except (subprocess.SubprocessError, OSError):
         return ""
+
+
+def _user_systemd_env(username: str = _USER) -> dict[str, str]:
+    """systemd --user needs XDG_RUNTIME_DIR/bus; bare system services lack them."""
+    uid = pwd.getpwnam(username).pw_uid
+    runtime = f"/run/user/{uid}"
+    env = os.environ.copy()
+    env["XDG_RUNTIME_DIR"] = runtime
+    env["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path={runtime}/bus"
+    return env
 
 
 def _listening_ports() -> dict[int, int]:
@@ -66,15 +78,16 @@ def _process_info(pid: int) -> dict:
 
 
 def _service_state(unit: str, user_unit: bool) -> str:
-    unit_q = shlex.quote(unit)
+    # user units: avoid `su -c` (password → empty → unknown).
+    # Inject user runtime bus so this works under system systemd services.
     if user_unit:
-        out = _run(["su", "-c", f"systemctl --user is-active {unit_q}", "gorillajw"])
+        out = _run(["systemctl", "--user", "is-active", unit], env=_user_systemd_env())
     else:
         out = _run(["systemctl", "is-active", unit])
     return out.strip() or "unknown"
 
 
-def snapshot() -> dict:
+def snapshot():
     cfg = load_config()
     tracked = {s["unit"]: s for s in cfg.get("tracked_services", [])}
     ignore_patterns = cfg.get("orphan_ignore_patterns", [])
